@@ -540,6 +540,10 @@ def main():
                         help="Only show the top 3 finishers per class (ties included)")
     args = parser.parse_args()
 
+    if not args.files and not args.dir:
+        parser.print_help()
+        sys.exit(0)
+
     xml_files = collect_xml_files(args.files, args.dir)
     if not xml_files:
         print("ERROR: No XML files found. Provide files directly or use --dir.", file=sys.stderr)
