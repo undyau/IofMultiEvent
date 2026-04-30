@@ -292,8 +292,11 @@ def build_standings(
         ranked = sorted([r for r in rows if r.total_time is not None], key=lambda r: r.total_time)
         unranked = [r for r in rows if r.total_time is None]
 
-        for i, row in enumerate(ranked, start=1):
-            row.position = i
+        pos = 1
+        for i, row in enumerate(ranked):
+            if i > 0 and ranked[i].total_time != ranked[i - 1].total_time:
+                pos = i + 1
+            row.position = pos
 
         standings[class_name] = ranked + unranked
 
@@ -334,7 +337,7 @@ def collect_class_data(
 # HTML generation
 # ---------------------------------------------------------------------------
 
-def generate_html(events: list[Event], standings: dict[str, list[ClassRow]]) -> str:
+def generate_html(events: list[Event], standings: dict[str, list[ClassRow]], top3: bool = False) -> str:
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     # Build event header labels
@@ -343,7 +346,7 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]]) -> 
     class_sections = ""
     for class_name in sorted(standings.keys()):
         rows = standings[class_name]
-        class_sections += _render_class(class_name, events, event_labels, rows)
+        class_sections += _render_class(class_name, events, event_labels, rows, top3=top3)
 
     event_list_items = "".join(f"<li>{label}</li>" for label in event_labels)
 
@@ -379,6 +382,7 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]]) -> 
     tr:last-child td {{ border-bottom: none; }}
     tr:hover td {{ background: #f8faff; }}
     .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
+    .evt-col {{ white-space: normal; min-width: 4.5rem; }}
     .pos {{ text-align: center; font-weight: 700; color: #555; width: 2.2rem; }}
     .pos-gold   {{ color: #b8860b; }}
     .pos-silver {{ color: #708090; }}
@@ -411,12 +415,11 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]]) -> 
 </html>"""
 
 
-def _render_class(class_name: str, events: list[Event], event_labels: list[str], rows: list[ClassRow]) -> str:
+def _render_class(class_name: str, events: list[Event], event_labels: list[str], rows: list[ClassRow], top3: bool = False) -> str:
+    if top3:
+        rows = [r for r in rows if r.position is not None and r.position <= 3]
     if not rows:
         return ""
-
-    # Event column headers
-    event_headers = "".join(f'<th class="num">{label}</th>' for label in event_labels)
 
     table_rows = ""
     prev_was_ranked = True
@@ -471,7 +474,7 @@ def _render_class(class_name: str, events: list[Event], event_labels: list[str],
         )
 
     event_headers_html = "".join(
-        f'<th class="num">{label}</th>' for label in event_labels
+        f'<th class="num evt-col">{label}</th>' for label in event_labels
     )
 
     return f"""  <div class="class-section">
@@ -533,6 +536,8 @@ def main():
                         help="Output HTML file (default: report.html)")
     parser.add_argument("files", nargs="*", metavar="FILE.xml",
                         help="IOF 3 XML ResultList files")
+    parser.add_argument("--top3", action="store_true",
+                        help="Only show the top 3 finishers per class (ties included)")
     args = parser.parse_args()
 
     xml_files = collect_xml_files(args.files, args.dir)
@@ -557,13 +562,17 @@ def main():
         print("ERROR: No valid IOF 3 ResultList files found.", file=sys.stderr)
         sys.exit(1)
 
+    # Sort events (and paired class data) by date; undated events go last
+    paired = sorted(zip(events, raw_class_data), key=lambda p: (p[0].date is None, p[0].date or ""))
+    events, raw_class_data = [list(x) for x in zip(*paired)]
+
     class_data = collect_class_data(events, raw_class_data)
     standings = build_standings(events, class_data)
 
     total_competitors = sum(len(rows) for rows in standings.values())
     print(f"\nBuilding standings: {len(standings)} class(es), {total_competitors} competitor(s)")
 
-    html = generate_html(events, standings)
+    html = generate_html(events, standings, top3=args.top3)
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(html)
