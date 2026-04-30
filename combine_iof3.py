@@ -449,19 +449,19 @@ def _render_class(class_name: str, events: list[Event], event_labels: list[str],
         event_cells = ""
         for result in row.results:
             if result is None:
-                event_cells += '<td class="num na">no result</td>'
+                event_cells += '<td class="num"><span class="st st-neutral">DNS</span></td>'
             elif result.status == OK_STATUS and result.time is not None:
                 event_cells += f'<td class="num">{fmt_time(result.time)}</td>'
             elif result.status == OK_STATUS:
                 # OK status but no time element in the XML
-                event_cells += '<td class="num na">no result</td>'
+                event_cells += '<td class="num"><span class="st st-neutral">untimed</span></td>'
             else:
                 label = STATUS_LABELS.get(result.status, result.status)
                 css = STATUS_CSS.get(result.status, "st-neutral")
                 event_cells += f'<td class="num"><span class="st {css}">{_esc(label)}</span></td>'
 
         if is_na:
-            total_html = '<td class="num na">no result</td>'
+            total_html = '<td class="num"><span class="st st-neutral">–</span></td>'
         else:
             total_html = f'<td class="num total">{fmt_time(row.total_time)}</td>'
 
