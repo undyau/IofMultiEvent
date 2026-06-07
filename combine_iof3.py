@@ -67,6 +67,12 @@ def _int_text(el, tag: str) -> Optional[int]:
         return None
 
 
+def _class_name_key(name: str) -> str:
+    """Normalize a class name for matching the same class across files
+    (some files omit spaces and/or vary casing, e.g. "M Open B" vs "MopenB")."""
+    return name.replace(" ", "").lower()
+
+
 def _esc(s: Optional[str]) -> str:
     if not s:
         return ""
@@ -311,24 +317,32 @@ def collect_class_data(
     Organise raw per-file class data into:
       { class_name: [ {competitor_key: (Competitor, PersonResult)}, ... ] }
     The outer list has one dict per event (in order).
+
+    Class names are matched across files ignoring spacing and case (some
+    files render the same class as e.g. "M Open B" and others as "MopenB"),
+    with the spaced variant kept as the canonical display name.
     """
-    # Find all class names
-    all_classes: set[str] = set()
+    canonical_names: dict[str, str] = {}
     for file_classes in raw:
-        all_classes.update(file_classes.keys())
+        for cn in file_classes:
+            key = _class_name_key(cn)
+            existing = canonical_names.get(key)
+            if existing is None or (" " in cn and " " not in existing):
+                canonical_names[key] = cn
 
     class_data: dict[str, list[dict[str, tuple[Competitor, PersonResult]]]] = {
-        cn: [] for cn in all_classes
+        cn: [] for cn in canonical_names.values()
     }
 
     for file_classes in raw:
-        for cn in all_classes:
-            entries = file_classes.get(cn, [])
+        name_by_key = {_class_name_key(cn): cn for cn in file_classes}
+        for key, canonical in canonical_names.items():
+            original_name = name_by_key.get(key)
+            entries = file_classes.get(original_name, []) if original_name else []
             event_map: dict[str, tuple[Competitor, PersonResult]] = {}
             for comp, result in entries:
-                key = comp.match_key()
-                event_map[key] = (comp, result)
-            class_data[cn].append(event_map)
+                event_map[comp.match_key()] = (comp, result)
+            class_data[canonical].append(event_map)
 
     return class_data
 
