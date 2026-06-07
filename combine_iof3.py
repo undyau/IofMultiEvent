@@ -387,6 +387,7 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]], top
     .class-header {{ background: #e8edf3; padding: 0.7rem 1rem;
                      border-bottom: 2px solid #c5d0df;
                      font-weight: 700; font-size: 1rem; color: #1a3a5c; }}
+    .table-wrap {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th {{ padding: 0.45rem 0.7rem; text-align: left; background: #f0f4fa;
           border-bottom: 1px solid #d4dce8; color: #555; font-weight: 600;
@@ -414,6 +415,16 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]], top
     .st-neutral {{ background: #e2e3e5; color: #383d41; }}
     .st-na      {{ color: #bbb; }}
     footer {{ text-align: center; padding: 1.2rem; color: #aaa; font-size: 0.78rem; }}
+
+    @media (max-width: 640px) {{
+      header {{ padding: 1rem; }}
+      header ul {{ flex-direction: column; gap: 0.3rem; }}
+      main {{ margin: 1rem auto; padding: 0 0.5rem; }}
+      .class-header {{ padding: 0.6rem 0.7rem; font-size: 0.92rem; }}
+      th, td {{ padding: 0.38rem 0.5rem; }}
+      th {{ font-size: 0.74rem; }}
+      .club, .club-col {{ display: none; }}
+    }}
   </style>
 </head>
 <body>
@@ -493,12 +504,13 @@ def _render_class(class_name: str, events: list[Event], event_labels: list[str],
 
     return f"""  <div class="class-section">
     <div class="class-header">{_esc(class_name)}</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th class="pos">#</th>
           <th>Name</th>
-          <th>Club</th>
+          <th class="club-col">Club</th>
           {event_headers_html}
           <th class="num">Total</th>
         </tr>
@@ -507,6 +519,7 @@ def _render_class(class_name: str, events: list[Event], event_labels: list[str],
         {table_rows}
       </tbody>
     </table>
+    </div>
   </div>
 """
 
