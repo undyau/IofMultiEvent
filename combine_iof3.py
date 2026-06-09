@@ -15,6 +15,7 @@ Usage:
 import argparse
 import glob
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -351,6 +352,20 @@ def collect_class_data(
 # HTML generation
 # ---------------------------------------------------------------------------
 
+def _class_sort_key(name: str) -> tuple:
+    """Sort unpaired classes (Open, EOD, M/W…) alphabetically first, then
+    W/M and D/H paired classes grouped by age/suffix with female first."""
+    m = re.match(r'^([WMDHwmdh]) ?(?!/)(.+)$', name)
+    if m:
+        prefix = m.group(1).upper()
+        suffix = m.group(2)
+        is_female = prefix in ('W', 'D')
+        num = re.match(r'^(\d+)(.*)', suffix)
+        suffix_key = (int(num.group(1)), num.group(2).lower()) if num else (999999, suffix.lower())
+        return (1, suffix_key, 0 if is_female else 1, name.lower())
+    return (0, (0, name.lower()), 0, name.lower())
+
+
 def generate_html(events: list[Event], standings: dict[str, list[ClassRow]], top3: bool = False) -> str:
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -358,7 +373,7 @@ def generate_html(events: list[Event], standings: dict[str, list[ClassRow]], top
     event_labels = [_esc(e.label) for e in events]
 
     class_sections = ""
-    for class_name in sorted(standings.keys()):
+    for class_name in sorted(standings.keys(), key=_class_sort_key):
         rows = standings[class_name]
         class_sections += _render_class(class_name, events, event_labels, rows, top3=top3)
 
